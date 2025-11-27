@@ -105,41 +105,44 @@
     <div class="max-w-6xl mx-auto">
         <h2 class="text-5xl font-black text-center mb-4" style="color:#f0f; text-shadow: 0 0 20px #f0f;">PRICING</h2>
         <p class="text-center text-cyan-400 mb-16 text-xl">เลือกแพ็กเกจที่เหมาะกับคุณ</p>
-        <div class="grid md:grid-cols-3 gap-8">
-            <div class="price-card p-8 rounded-lg">
-                <h3 class="text-3xl font-bold text-cyan-400 mb-4">STARTER</h3>
-                <p class="text-5xl font-black mb-6">฿299<span class="text-lg">/เดือน</span></p>
-                <ul class="space-y-3 mb-8 text-gray-300">
-                    <li>✓ Calorie Scanner</li>
-                    <li>✓ BMI Tracker</li>
-                    <li>✓ Basic Analytics</li>
-                </ul>
-                <button class="w-full py-3 bg-cyan-600 hover:bg-cyan-500 rounded font-bold">สมัครเลย</button>
+        <div class="max-w-2xl mx-auto">
+                <!-- Single Featured Price Card -->
+                <div class="price-card featured p-10 rounded-lg text-center">
+                    <div class="text-yellow-400 font-bold text-xl mb-4">🔥 AEGIS FIT PRO</div>
+                    <h3 class="text-5xl font-bold mb-6" style="color:#0ff; text-shadow: 0 0 20px #0ff;">฿2,990</h3>
+                    <p class="text-2xl text-gray-300 mb-8">รายปี (Yearly)</p>
+                    
+                    <ul class="space-y-4 mb-10 text-left text-lg text-gray-300">
+                        <li>✓ Calorie Scanner AI</li>
+                        <li>✓ Body Transform Visualization</li>
+                        <li>✓ BMI & Progress Tracker</li>
+                        <li>✓ Advanced Analytics</li>
+                        <li>✓ Personal Coaching</li>
+                        <li>✓ Custom Meal Plans</li>
+                        <li>✓ VIP Support 24/7</li>
+                        <li>✓ Exclusive Content</li>
+                    </ul>
+
+                    <!-- Payment Options -->
+                    <div class="grid md:grid-cols-2 gap-6 mt-8">
+                        <!-- Full Payment Option -->
+                        <div class="payment-option p-6 rounded-lg bg-black/50 neon-border hover:bg-black/70 transition-all cursor-pointer">
+                            <div class="text-cyan-400 font-bold text-xl mb-3">💳 จ่ายเต็มจำนวน</div>
+                            <p class="text-gray-400 mb-4 text-sm">ผ่าน QR Code หรือ Stripe</p>
+                            <p class="text-3xl font-bold text-white mb-4">฿2,990</p>
+                            <button class="w-full py-3 bg-cyan-600 hover:bg-cyan-500 rounded-full font-bold transition-all">ชำระเงินเลย</button>
+                        </div>
+
+                        <!-- Installment Payment Option -->
+                        <div class="payment-option p-6 rounded-lg bg-black/50 neon-border hover:bg-black/70 transition-all cursor-pointer">
+                            <div class="text-purple-400 font-bold text-xl mb-3">📅 ผ่อนชำระ 3 งวด</div>
+                            <p class="text-gray-400 mb-4 text-sm">ผ่าน Stripe เท่านั้น</p>
+                            <p class="text-3xl font-bold text-white mb-4">฿997 <span class="text-lg">/งวด</span></p>
+                            <button class="w-full py-3 bg-purple-600 hover:bg-purple-500 rounded-full font-bold transition-all">ผ่อนชำระ 3 งวด</button>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="price-card featured p-8 rounded-lg">
-                <div class="text-center text-yellow-400 font-bold mb-2">🔥 POPULAR</div>
-                <h3 class="text-3xl font-bold mb-4" style="color:#f0f;">PRO</h3>
-                <p class="text-5xl font-black mb-6">฿599<span class="text-lg">/เดือน</span></p>
-                <ul class="space-y-3 mb-8 text-gray-300">
-                    <li>✓ All Starter Features</li>
-                    <li>✓ Body Transform AI</li>
-                    <li>✓ Advanced Analytics</li>
-                    <li>✓ Personal Coaching</li>
-                </ul>
-                <button class="w-full py-3 font-bold rounded glow-button">สมัครเลย</button>
-            </div>
-            <div class="price-card p-8 rounded-lg">
-                <h3 class="text-3xl font-bold text-cyan-400 mb-4">ELITE</h3>
-                <p class="text-5xl font-black mb-6">฿999<span class="text-lg">/เดือน</span></p>
-                <ul class="space-y-3 mb-8 text-gray-300">
-                    <li>✓ All Pro Features</li>
-                    <li>✓ VIP Support 24/7</li>
-                    <li>✓ Custom Meal Plans</li>
-                    <li>✓ Exclusive Content</li>
-                </ul>
-                <button class="w-full py-3 bg-purple-600 hover:bg-purple-500 rounded font-bold">สมัครเลย</button>
-            </div>
-        </div>
     </div>
 </section>
 
