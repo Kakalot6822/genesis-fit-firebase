@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aegis Fit Elite - Fitness App</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { margin: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="text/babel">
+const { useState, useEffect, useCallback, useMemo } = React;
+
+// Firebase Config
+const firebaseConfig = {
+    apiKey: "AIzaSyDMMydX7yEytjIMFcVp23Ntiulv7R5T_7k",
+    authDomain: "genesis-fit-firebase.firebaseapp.com",
+    projectId: "genesis-fit-firebase",
+    storageBucket: "genesis-fit-firebase.firebasestorage.app",
+    messagingSenderId: "588469276894",
+    appId: "1:588469276894:web:e0c6f2f3d4b5a6c7d8e9f0"
+};
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+// Helper Functions
+const calculateBMI = (weight, height) => {
+    if (weight <= 0 || height <= 0) return null;
+    const heightInMeters = height / 100;
+    return (weight / (heightInMeters * heightInMeters)).toFixed(2);
+};
+
+const getIntensityLevel = (bmi) => {
+    if (bmi === null) return { level: 'normal', message: 'กรุณากรอกข้อมูลร่างกาย' };
+    if (bmi < 18.5) return { level: 'low', message: 'ผอมเกินไป: เน้นความแข็งแรงพื้นฐาน' };
+    if (bmi >= 18.5 && bmi <= 24.9) return { level: 'moderate', message: 'น้ำหนักปกติ: ความเข้มข้นปานกลางถึงสูง' };
+    if (bmi >= 25 && bmi <= 29.9) return { level: 'high', message: 'น้ำหนักเกิน: ความเข้มข้นสูง เน้นการเผาผลาญ' };
+    return { level: 'low', message: 'อ้วน: เน้นการเคลื่อนไหว' };
+};
+
+const calculateBMR = (weight, height, age, gender) => {
+    if (weight <= 0 || height <= 0 || age <= 0) return null;
+    let bmr;
+    if (gender === 'male') {
+        bmr = (10 * weight) + (6.25 * height) - (5 * age) + 5;
+    } else {
+        bmr = (10 * weight) + (6.25 * height) - (5 * age) - 161;
+    }
+    return Math.round(bmr);
+};
+
+const getTDEEMultiplier = (level) => {
+    switch (level) {
+        case 'sedentary': return 1.2;
+        case 'light': return 1.375;
+        case 'moderate': return 1.55;
+        case 'high': return 1.725;
+        case 'very_high': return 1.9;
+        default: return 1.55;
+    }
+};
+
+const calculateTDEE = (bmr, activityLevel) => {
+    if (bmr === null) return null;
+    const multiplier = getTDEEMultiplier(activityLevel);
+    return Math.round(bmr * multiplier);
+};
+
+const generateProgram = (focusArea, equipment, intensityLevel) => {
+    const getIntensityTag = (level) => {
+        switch(level) {
+            case 'low': return '[พื้นฐาน]';
+            case 'moderate': return '[ปานกลาง]';
+            case 'high': return '[เข้มข้น]';
+            default: return '[ปรับปรุง]';
+        }
+    };
+    const intensityTag = getIntensityTag(intensityLevel);
+    const getFocusWorkout = (area, equip) => {
+        let focusMove;
+        let equipmentUsed = equip.includes('none') || equip.length === 0 ? '(No Equipment)' : `(${equip.map(e => e.charAt(0).toUpperCase() + e.slice(1)).join(', ')})`;
+        switch (area) {
+            case 'legs':
+                focusMove = equip.includes('dumbbells') ? 'Goblet Squat & Lunges' : 'Bodyweight Squat & Glute Bridge';
+                break;
+            case 'upper':
+                focusMove = equip.includes('dumbbells') ? 'Dumbbell Press & Rows' : 'Push-ups & Incline Push-ups';
+                break;
+            case 'core':
+                focusMove = equip.includes('bands') ? 'Banded Crunches & Planks' : 'Leg Raises & Mountain Climbers';
+                break;
+            default:
+                focusMove = 'Full Body Circuit';
+        }
+        return `${intensityTag} ${focusMove} ${equipmentUsed}`;
+    };
+    return [
+        { day: 'วันจันทร์', workout: getFocusWorkout(focusArea, equipment), type: 'เน้นเป้าหมาย' },
+        { day: 'วันอังคาร', workout: `${intensityTag} Cardio & Mobility`, type: 'เผาผลาญเบาๆ' },
+        { day: 'วันพุธ', workout: `${intensityTag} Full Body Hybrid`, type: 'ความแข็งแรงรวม' },
+        { day: 'วันพฤหัสบดี', workout: `${intensityTag} Active Recovery`, type: 'พักฟื้น' },
+        { day: 'วันศุกร์', workout: getFocusWorkout(focusArea, equipment), type: 'เน้นเป้าหมาย' },
+        { day: 'วันเสาร์', workout: `${intensityTag} HIIT 20 นาที`, type: 'เผาผลาญเข้มข้น' },
+        { day: 'วันอาทิตย์', workout: 'พักผ่อนเต็มที่', type: 'พักเต็มวัน' },
+    ];
+};
+
+const initialProfileState = {
+    weight: '', height: '', age: '', gender: 'male',
+    focusArea: 'legs', equipment: [], activityLevel: 'moderate',
+    calorieGoal: 2000, calorieConsumed: 0, calorieBurned: 0,
+    bmi: null, bmr: null, tdee: null, program: [],
+};
+
+// Main App Component
+const App = () => {
+    const [currentPage, setCurrentPage] = useState('home');
+    const [profile, setProfile] = useState(initialProfileState);
+    const [userId, setUserId] = useState(null);
+    const [isAuthReady, setIsAuthReady] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [statusMessage, setStatusMessage] = useState('');
+
+    useEffect(() => {
+        const signIn = async () => {
+            try {
+                await auth.signInAnonymously();
+            } catch (error) {
+                console.error('Auth error:', error);
+            }
+        };
+        const unsubscribe = auth.onAuthStateChanged((user) => {
+            setUserId(user ? user.uid : null);
+            setIsAuthReady(true);
+            if (user) {
+                const profileRef = db.collection('users').doc(user.uid).collection('profileData').doc('user_profile');
+                profileRef.onSnapshot((doc) => {
+                    if (doc.exists) {
+                        setProfile(prev => ({ ...prev, ...doc.data() }));
+                        setStatusMessage('โหลดข้อมูลสำเร็จ');
+                    }
+                });
+            }
+        });
+        signIn();
+        return () => unsubscribe();
+    }, []);
+
+    const saveProfile = useCallback(async (newProfile, currentUserId = userId) => {
+        if (!currentUserId || !db) return;
+        const profileRef = db.collection('users').doc(currentUserId).collection('profileData').doc('user_profile');
+        try {
+            setLoading(true);
+            await profileRef.set(newProfile, { merge: true });
+            setStatusMessage('บันทึกสำเร็จ!');
+        } catch (error) {
+            setStatusMessage('ผิดพลาด: ' + error.message);
+        } finally {
+            setLoading(false);
+        }
+    }, [userId]);
+
+    const updateProfileAndGenerateProgram = useCallback((newValues) => {
+        const updatedProfile = { ...profile, ...newValues };
+        const newBMI = calculateBMI(parseFloat(updatedProfile.weight), parseFloat(updatedProfile.height));
+        const intensity = getIntensityLevel(newBMI ? parseFloat(newBMI) : null);
+        const intensityLevel = intensity.level;
+        const newBMR = calculateBMR(parseFloat(updatedProfile.weight), parseFloat(updatedProfile.height), parseInt(updatedProfile.age), updatedProfile.gender);
+        const newTDEE = calculateTDEE(newBMR, updatedProfile.activityLevel);
+        const newProgram = generateProgram(updatedProfile.focusArea, updatedProfile.equipment, intensityLevel);
+        const newCalorieGoal = newTDEE || 2000;
+        const finalProfile = {
+            ...updatedProfile,
+            bmi: newBMI,
+            intensityLevel: intensityLevel,
+            bmr: newBMR,
+            tdee: newTDEE,
+            calorieGoal: newCalorieGoal,
+            program: newProgram,
+        };
+        setProfile(finalProfile);
+        saveProfile(finalProfile);
+    }, [profile, saveProfile]);
+
+    const handleCalorieUpdate = (type, amount) => {
+        if (isNaN(amount) || amount <= 0) return;
+        let updatedProfile;
+        if (type === 'consumed') {
+            updatedProfile = { ...profile, calorieConsumed: profile.calorieConsumed + amount };
+        } else if (type === 'burned') {
+            updatedProfile = { ...profile, calorieBurned: profile.calorieBurned + amount };
+        }
+        setProfile(updatedProfile);
+        saveProfile(updatedProfile);
+    };
+
+    // UI Components
+    const Nav = () => (
+        <div className="flex justify-between items-center p-4 bg-indigo-600 text-white shadow-lg">
+            <h1 className="text-2xl font-bold">Aegis Fit Elite</h1>
+            <div className="flex gap-2">
+                <button onClick={() => setCurrentPage('home')} className={`px-4 py-2 rounded-lg ${currentPage === 'home' ? 'bg-white text-indigo-600' : 'bg-indigo-500'}`}>หน้าหลัก</button>
+                <button onClick={() => setCurrentPage('program')} className={`px-4 py-2 rounded-lg ${currentPage === 'program' ? 'bg-white text-indigo-600' : 'bg-indigo-500'}`}>โปรแกรม</button>
+            </div>
+        </div>
+    );
+
+    const HomePage = () => (
+        <div className="p-8 bg-gray-50 min-h-screen">
+            <h2 className="text-4xl font-bold mb-6 text-gray-800">ยินดีต้อนรับสู่ Aegis Fit Elite</h2>
+            <p className="text-gray-600 mb-8">แอปพลิเคชันฟิตเนสส่วนตัวของคุณ ที่ปรับแผนการฝึกและการจัดการโภชนาการให้เข้ากับคุณโดยเฉพาะ</p>
+            <div className="grid md:grid-cols-3 gap-6">
+                <div onClick={() => setCurrentPage('program')} className="bg-white p-6 rounded-xl shadow-lg hover:shadow-xl transition cursor-pointer border-t-4 border-indigo-500">
+                    <h3 className="text-2xl font-bold mb-2 text-gray-800">โปรไฟล์ & แผนการฝึก</h3>
+                    <p className="text-gray-600">กรอกข้อมูลร่างกาย เพื่อสร้างแผนการฝึก 7 วันส่วนตัว</p>
+                </div>
+                <div className="bg-white p-6 rounded-xl shadow-lg border-t-4 border-teal-500">
+                    <h3 className="text-2xl font-bold mb-2 text-gray-800">คลาสเรียนพรีเมียม</h3>
+                    <p className="text-gray-600">เข้าถึงวิดีโอการฝึกคุณภาพสูง</p>
+                </div>
+                <div className="bg-white p-6 rounded-xl shadow-lg border-t-4 border-orange-500">
+                    <h3 className="text-2xl font-bold mb-2 text-gray-800">สูตรอาหาร</h3>
+                    <p className="text-gray-600">เมนูอาหารที่ช่วยบรรลุเป้าหมายแคลอรี่</p>
+                </div>
+            </div>
+        </div>
+    );
+
+    const ProfilePage = () => {
+        const { weight, height, age, gender, focusArea, equipment, activityLevel, calorieGoal, calorieConsumed, calorieBurned, bmi, bmr, tdee, program } = profile;
+        const [consumedInput, setConsumedInput] = useState('');
+        const [burnedInput, setBurnedInput] = useState('');
+        
+        const handleInputChange = (e) => {
+            const { name, value, type, checked } = e.target;
+            if (name === 'weight' || name === 'height' || name === 'age') {
+                updateProfileAndGenerateProgram({ [name]: value });
+            } else if (type === 'checkbox') {
+                let newEquipment = checked ? [...equipment, value] : equipment.filter(eq => eq !== value);
+                updateProfileAndGenerateProgram({ equipment: newEquipment });
+            } else {
+                updateProfileAndGenerateProgram({ [name]: value });
+            }
+        };
+        
+        const calorieBalance = useMemo(() => calorieGoal - calorieConsumed + calorieBurned, [calorieGoal, calorieConsumed, calorieBurned]);
+        
+        return (
+            <div className="p-8 bg-gray-50 min-h-screen">
+                <h2 className="text-3xl font-bold mb-6 text-indigo-700">โปรไฟล์ & แผนการฝึก</h2>
+                <div className="bg-white p-6 rounded-xl shadow-lg mb-6">
+                    <h3 className="text-xl font-bold mb-4">ข้อมูลร่างกาย</h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">น้ำหนัก (Kg)</label>
+                            <input type="number" name="weight" value={weight} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-md" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">ส่วนสูง (Cm)</label>
+                            <input type="number" name="height" value={height} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-md" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">อายุ (ปี)</label>
+                            <input type="number" name="age" value={age} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-md" />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">เพศ</label>
+                            <select name="gender" value={gender} onChange={handleInputChange} className="w-full p-2 border border-gray-300 rounded-md">
+                                <option value="male">ชาย</option>
+                                <option value="female">หญิง</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="p-4 bg-indigo-50 rounded-lg">
+                            <p className="text-sm text-indigo-600 font-semibold">BMI</p>
+                            <p className="text-2xl font-bold">{bmi || 'N/A'}</p>
+                        </div>
+                        <div className="p-4 bg-pink-50 rounded-lg">
+                            <p className="text-sm text-pink-600 font-semibold">BMR (Kcal/วัน)</p>
+                            <p className="text-2xl font-bold">{bmr || 'N/A'}</p>
+                        </div>
+                        <div className="p-4 bg-teal-50 rounded-lg">
+                            <p className="text-sm text-teal-600 font-semibold">TDEE (Kcal/วัน)</p>
+                            <p className="text-2xl font-bold">{tdee || 'N/A'}</p>
+                        </div>
+                    </div>
+                </div>
+                <div className="bg-white p-6 rounded-xl shadow-lg mb-6">
+                    <h3 className="text-xl font-bold mb-4">แผนการฝึก 7 วัน</h3>
+                    {program.length > 0 ? (
+                        <div className="space-y-2">
+                            {program.map((item, idx) => (
+                                <div key={idx} className={`p-3 rounded-lg flex justify-between ${idx % 2 === 0 ? 'bg-gray-100' : 'bg-white'}`}>
+                                    <span className="font-bold text-indigo-600">{item.day}</span>
+                                    <span className="text-gray-700 text-sm flex-grow px-4">{item.workout}</span>
+                                    <span className="text-xs text-gray-500 italic">{item.type}</span>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <p className="text-gray-500">กรอกข้อมูลเพื่อสร้างแผนการฝึก</p>
+                    )}
+                </div>
+                <div className="bg-white p-6 rounded-xl shadow-lg">
+                    <h3 className="text-xl font-bold mb-4">การจัดการแคลอรี่</h3>
+                    <div className={`p-4 mb-4 rounded-xl text-white font-bold text-center ${calorieBalance >= 0 ? 'bg-emerald-500' : 'bg-red-500'}`}>
+                        <p className="text-sm">แคลอรี่ที่เหลือ (เป้าหมาย {calorieGoal} Kcal)</p>
+                        <p className="text-3xl mt-1">{calorieBalance} Kcal</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 text-center text-sm mb-4">
+                        <div>
+                            <p className="font-semibold text-emerald-600">บริโภค</p>
+                            <p className="text-2xl">{calorieConsumed}</p>
+                        </div>
+                        <div>
+                            <p className="font-semibold text-red-600">เผาผลาญ</p>
+                            <p className="text-2xl">{calorieBurned}</p>
+                        </div>
+                    </div>
+                    <div className="space-y-3">
+                        <div className="flex space-x-2">
+                            <input type="number" className="p-2 border rounded-md flex-grow" placeholder="แคลอรี่บริโภค (Kcal)" value={consumedInput} onChange={(e) => setConsumedInput(e.target.value)} />
+                            <button onClick={() => { handleCalorieUpdate('consumed', parseFloat(consumedInput)); setConsumedInput(''); }} className="px-4 py-2 bg-emerald-500 text-white rounded-md hover:bg-emerald-600">เพิ่ม</button>
+                        </div>
+                        <div className="flex space-x-2">
+                            <input type="number" className="p-2 border rounded-md flex-grow" placeholder="แคลอรี่เผาผลาญ (Kcal)" value={burnedInput} onChange={(e) => setBurnedInput(e.target.value)} />
+                            <button onClick={() => { handleCalorieUpdate('burned', parseFloat(burnedInput)); setBurnedInput(''); }} className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600">ลด</button>
+                        </div>
+                    </div>
+                </div>
+                {statusMessage && <div className="mt-4 p-3 bg-indigo-50 rounded-lg text-indigo-700 text-sm">{statusMessage}</div>}
+            </div>
+        );
+    };
+
+    if (!isAuthReady) {
+        return <div className="flex items-center justify-center min-h-screen bg-gray-50"><p className="text-lg text-gray-600">กำลังเชื่อมต่อ...</p></div>;
+    }
+
+    return (
+        <div className="min-h-screen bg-gray-100">
+            <Nav />
+            {currentPage === 'home' && <HomePage />}
+            {currentPage === 'program' && <ProfilePage />}
+        </div>
+    );
+};
+
+ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>
